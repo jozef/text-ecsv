@@ -1,65 +1,114 @@
 package Text::ECSV;
 
-use warnings;
-use strict;
-
 =head1 NAME
 
-Text::ECSV - The great new Text::ECSV!
-
-=head1 VERSION
-
-Version 0.01
-
-=cut
-
-our $VERSION = '0.01';
-
+Text::ECSV - Extended CSV manipulation routines
 
 =head1 SYNOPSIS
 
-Quick summary of what the module does.
-
-Perhaps a little code snippet.
-
     use Text::ECSV;
+    $ecsv    = Text::ECSV->new ();         # create a new object
+    $status  = $ecsv->parse ($line);       # parse a CSV string into fields
+                                           #    and name value pairs
+    %columns = $ecsv->fields_hash ();      # get the parsed field hash
+    $column  = $ecsv->field_named('id');   # get field value for given name
 
-    my $foo = Text::ECSV->new();
-    ...
+=head1 DESCRIPTION
 
-=head1 EXPORT
-
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
-
-=head1 FUNCTIONS
-
-=head2 function1
+C< use base 'Text::CSV_XS'; > => see L<Text::CSV_XS>.
 
 =cut
 
-sub function1 {
-}
+use warnings;
+use strict;
 
-=head2 function2
+our $VERSION = '0.01';
+
+use base 'Text::CSV_XS', 'Class::Accessor::Fast';
+
+=head1 PROPERTIES
 
 =cut
 
-sub function2 {
+__PACKAGE__->mk_accessors(qw{
+    field_named
+    fields_hash
+});
+
+=head1 METHODS
+
+=head2 field_named($name)
+
+Return field with $name.
+
+=cut
+
+sub field_named {
+    my $self = shift;
+    my $name = shift;
+    
+    return $self->fields_hash->{$name};
 }
+
+
+=head2 parse()
+
+In aditional to the C<SUPER::parse()> functionality it decodes
+name value pairs to fill in C<fields_hash>.
+
+=cut
+
+sub parse {
+    my $self = shift;
+    
+    # reset fields hash
+    $self->fields_hash({});
+    
+    # run Text::CSV_XS parse
+    my $status = $self->SUPER::parse(@_);
+    
+    # if the CSV parsing was successfull then decode key name pairs
+    if ($status) {
+        foreach my $field ($self->fields) {
+            # decode fields to name value pair
+            if ($field =~ m/^([^=]+)=(.*)$/) {
+                my $name  = $1;
+                my $value = $2;
+                
+                $self->fields_hash->{$name} = $value;
+            }
+            # else fail
+            else {
+                $status = 0;
+                # TODO fill error messages
+                
+                last;
+            }
+        }
+    }
+    
+    return $status;
+}
+
+1;
+
+
+__END__
+
+=head1 TODO
+
+    * $csv->combine(key => value, key2 => value)
+    * handle multiple same keys on one line be "strategy"
 
 =head1 AUTHOR
 
-Jozef Kutej, C<< <jozef at kutej.net> >>
+Jozef Kutej, C<< <jkutej@cpan.org> >>
 
 =head1 BUGS
 
 Please report any bugs or feature requests to C<bug-text-ecsv at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Text-ECSV>.  I will be notified, and then you'll
 automatically be notified of progress on your bug as I make changes.
-
-
-
 
 =head1 SUPPORT
 
@@ -104,4 +153,4 @@ under the same terms as Perl itself.
 
 =cut
 
-1; # End of Text::ECSV
+1;
