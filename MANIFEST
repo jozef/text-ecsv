@@ -6,3 +6,10 @@ lib/Text/ECSV.pm
 t/00-load.t
 t/pod-coverage.t
 t/pod.t
+Makefile.PL
+META.yml
+t/00-compile.t
+t/01_Text-ECSV.t
+t/distribution.t
+t/pod-spell.t
+t/signature.t
