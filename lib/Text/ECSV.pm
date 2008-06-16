@@ -197,9 +197,6 @@ L<http://search.cpan.org/dist/Text-ECSV>
 =back
 
 
-=head1 ACKNOWLEDGEMENTS
-
-
 =head1 COPYRIGHT & LICENSE
 
 Copyright 2008 Jozef Kutej, all rights reserved.
