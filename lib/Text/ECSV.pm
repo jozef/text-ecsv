@@ -8,14 +8,29 @@ Text::ECSV - Extended CSV manipulation routines
 
     use Text::ECSV;
     $ecsv    = Text::ECSV->new ();         # create a new object
+    $line    = 'id=3,name=Text::ECSV,shot_desc=Extended CSV manipulation routines';
     $status  = $ecsv->parse ($line);       # parse a CSV string into fields
                                            #    and name value pairs
     %columns = $ecsv->fields_hash ();      # get the parsed field hash
     $column  = $ecsv->field_named('id');   # get field value for given name
+    
+    $ecsv->combine('b' => 2, 'a' => 1, 'c' => 3, );
+    # ok($ecsv->string eq 'b=2,a=1,c=3');
 
 =head1 DESCRIPTION
 
 C< use base 'Text::CSV_XS'; > => see L<Text::CSV_XS>.
+
+Roland Giersig had a presentation at YAPC 2007 called 'Techniques for Remote
+System-Monitoring'. He was explaining his search after a good logging
+format or how to store continuous flow of data in a most usable form.
+XML? YAML? CSV? XML is nice but for a machines not for humans,
+YAML is nice for both but it's hard to grep. CSV is readable and grep-able
+but not too flexible. So what is the conclusion? ECSV is like a CSV but
+in each comma separated field the name of the column is set. This gives a
+flexibility to skip, reorder, add the fields. All the information is stored
+per line so it's easy to grep. Also it's easy to compare two records by
+md5-ing the lines or doing string eq.
 
 =cut
 
@@ -28,11 +43,24 @@ use base 'Text::CSV_XS', 'Class::Accessor::Fast';
 
 =head1 PROPERTIES
 
+=head2 fields_hash
+
+Holds hash reference to the resulting hash constructed by C<parse()>.
+
+=head2 dup_keys_strategy
+
+If set and a dupplicate key names occure in a parsed line, this strategy
+is called with C<< ->($name, $old_value, $value) >>.
+
+Can be used for duplicate keys to join values to one string, or push them
+to an array or to treat them how ever is desired. By default values overwrite
+each other.
+
 =cut
 
 __PACKAGE__->mk_accessors(qw{
-    field_named
     fields_hash
+    dup_keys_strategy
 });
 
 =head1 METHODS
@@ -67,27 +95,56 @@ sub parse {
     # run Text::CSV_XS parse
     my $status = $self->SUPER::parse(@_);
     
-    # if the CSV parsing was successfull then decode key name pairs
-    if ($status) {
-        foreach my $field ($self->fields) {
-            # decode fields to name value pair
-            if ($field =~ m/^([^=]+)=(.*)$/) {
-                my $name  = $1;
-                my $value = $2;
-                
-                $self->fields_hash->{$name} = $value;
+    # if the CSV parsing failed then just return
+    return $status
+        if not $status;
+    
+    # decode the fileds
+    foreach my $field ($self->fields) {
+        # if we have key value pair
+        if ($field =~ m/^([^=]+)=(.*)$/) {
+            my $name  = $1;
+            my $value = $2;
+            
+            # if it the second occurence of the same key and we have a strategy use it
+            #    to construct the new value 
+            if (exists $self->{'fields_hash'}->{$name} and exists $self->{'dup_keys_strategy'}) {
+                $value = $self->{'dup_keys_strategy'}->($name, $self->{'fields_hash'}->{$name}, $value);
             }
-            # else fail
-            else {
-                $status = 0;
-                # TODO fill error messages
-                
-                last;
-            }
+            
+            # store value
+            $self->{'fields_hash'}->{$name} = $value;
+        }
+        # else fail
+        else {
+            $status = 0;
+            # TODO fill error messages
+            
+            last;
         }
     }
     
     return $status;
+}
+
+
+=head2 combine($key => $value, ...)
+
+The function joins all $key.'='.$value and then calls C<SUPER::combine>
+constructing a CSV from the arguments, returning success or failure.
+
+=cut
+
+sub combine {
+    my $self       = shift;
+    my @key_values = @_;
+    my @fields;
+    
+    while (@key_values) {
+        push @fields, (shift(@key_values).'='.shift(@key_values));
+    }
+    
+    return $self->SUPER::combine(@fields);
 }
 
 1;
@@ -97,7 +154,6 @@ __END__
 
 =head1 TODO
 
-    * $csv->combine(key => value, key2 => value)
     * handle multiple same keys on one line be "strategy"
 
 =head1 AUTHOR
