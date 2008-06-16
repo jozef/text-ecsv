@@ -158,7 +158,8 @@ __END__
 
 =head1 AUTHOR
 
-Jozef Kutej, C<< <jkutej@cpan.org> >>
+Jozef Kutej, C<< <jkutej@cpan.org> >>,
+thanks to Roland Giersig C<< <RGiersig@cpan.org> >> for the idea.
 
 =head1 BUGS
 
