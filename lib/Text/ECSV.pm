@@ -152,10 +152,6 @@ sub combine {
 
 __END__
 
-=head1 TODO
-
-    * handle multiple same keys on one line be "strategy"
-
 =head1 AUTHOR
 
 Jozef Kutej, C<< <jkutej@cpan.org> >>,
