@@ -1,5 +1,87 @@
 package Text::ECSV;
 
+use warnings;
+use strict;
+
+our $VERSION = '0.02';
+
+use base 'Text::CSV_XS', 'Class::Accessor::Fast';
+
+__PACKAGE__->mk_accessors(qw{
+        fields_hash
+        dup_keys_strategy
+        }
+);
+
+sub field_named {
+    my $self = shift;
+    my $name = shift;
+
+    return $self->fields_hash->{$name};
+}
+
+sub parse {
+    my $self = shift;
+
+    # reset fields hash
+    $self->fields_hash({});
+
+    # run Text::CSV_XS parse
+    my $status = $self->SUPER::parse(@_);
+
+    # if the CSV parsing failed then just return
+    return $status
+        if not $status;
+
+    # decode the fileds
+    foreach my $field ($self->fields) {
+
+        # if we have key value pair
+        if ($field =~ m/^([^=]+)=(.*)$/) {
+            my $name  = $1;
+            my $value = $2;
+
+            # if it the second occurence of the same key and we have a strategy use it
+            #    to construct the new value
+            if (    exists $self->{'fields_hash'}->{$name}
+                and exists $self->{'dup_keys_strategy'}) {
+                $value = $self->{'dup_keys_strategy'}
+                    ->($name, $self->{'fields_hash'}->{$name}, $value);
+            }
+
+            # store value
+            $self->{'fields_hash'}->{$name} = $value;
+        }
+
+        # else fail
+        else {
+            $status = 0;
+
+            # TODO fill error messages
+
+            last;
+        }
+    }
+
+    return $status;
+}
+
+sub combine {
+    my $self       = shift;
+    my @key_values = @_;
+    my @fields;
+
+    while (@key_values) {
+        push @fields, (shift(@key_values) . '=' . shift(@key_values));
+    }
+
+    return $self->SUPER::combine(@fields);
+}
+
+1;
+
+__END__
+
 =head1 NAME
 
 Text::ECSV - Extended CSV manipulation routines
@@ -13,7 +95,7 @@ Text::ECSV - Extended CSV manipulation routines
                                            #    and name value pairs
     %columns = $ecsv->fields_hash ();      # get the parsed field hash
     $column  = $ecsv->field_named('id');   # get field value for given name
-    
+
     $ecsv->combine('b' => 2, 'a' => 1, 'c' => 3, );
     # ok($ecsv->string eq 'b=2,a=1,c=3');
 
@@ -30,16 +112,7 @@ but not too flexible. So what is the conclusion? ECSV is like a CSV but
 in each comma separated field the name of the column is set. This gives a
 flexibility to skip, reorder, add the fields. All the information is stored
 per line so it's easy to grep. Also it's easy to compare two records by
-md5-ing the lines or doing string eq.
-
-=cut
-
-use warnings;
-use strict;
-
-our $VERSION = '0.01';
-
-use base 'Text::CSV_XS', 'Class::Accessor::Fast';
+md5ing the lines or doing string eq.
 
 =head1 PROPERTIES
 
@@ -49,19 +122,12 @@ Holds hash reference to the resulting hash constructed by C<parse()>.
 
 =head2 dup_keys_strategy
 
-If set and a dupplicate key names occure in a parsed line, this strategy
+If set and a duplicate key names occur in a parsed line, this strategy
 is called with C<< ->($name, $old_value, $value) >>.
 
 Can be used for duplicate keys to join values to one string, or push them
 to an array or to treat them how ever is desired. By default values overwrite
 each other.
-
-=cut
-
-__PACKAGE__->mk_accessors(qw{
-    fields_hash
-    dup_keys_strategy
-});
 
 =head1 METHODS
 
@@ -69,88 +135,15 @@ __PACKAGE__->mk_accessors(qw{
 
 Return field with $name.
 
-=cut
-
-sub field_named {
-    my $self = shift;
-    my $name = shift;
-    
-    return $self->fields_hash->{$name};
-}
-
-
 =head2 parse()
 
-In aditional to the C<SUPER::parse()> functionality it decodes
+In additional to the C<SUPER::parse()> functionality it decodes
 name value pairs to fill in C<fields_hash>.
-
-=cut
-
-sub parse {
-    my $self = shift;
-    
-    # reset fields hash
-    $self->fields_hash({});
-    
-    # run Text::CSV_XS parse
-    my $status = $self->SUPER::parse(@_);
-    
-    # if the CSV parsing failed then just return
-    return $status
-        if not $status;
-    
-    # decode the fileds
-    foreach my $field ($self->fields) {
-        # if we have key value pair
-        if ($field =~ m/^([^=]+)=(.*)$/) {
-            my $name  = $1;
-            my $value = $2;
-            
-            # if it the second occurence of the same key and we have a strategy use it
-            #    to construct the new value 
-            if (exists $self->{'fields_hash'}->{$name} and exists $self->{'dup_keys_strategy'}) {
-                $value = $self->{'dup_keys_strategy'}->($name, $self->{'fields_hash'}->{$name}, $value);
-            }
-            
-            # store value
-            $self->{'fields_hash'}->{$name} = $value;
-        }
-        # else fail
-        else {
-            $status = 0;
-            # TODO fill error messages
-            
-            last;
-        }
-    }
-    
-    return $status;
-}
-
 
 =head2 combine($key => $value, ...)
 
 The function joins all $key.'='.$value and then calls C<SUPER::combine>
 constructing a CSV from the arguments, returning success or failure.
-
-=cut
-
-sub combine {
-    my $self       = shift;
-    my @key_values = @_;
-    my @fields;
-    
-    while (@key_values) {
-        push @fields, (shift(@key_values).'='.shift(@key_values));
-    }
-    
-    return $self->SUPER::combine(@fields);
-}
-
-1;
-
-
-__END__
 
 =head1 AUTHOR
 

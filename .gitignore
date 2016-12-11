@@ -1,0 +1,15 @@
+/Makefile
+/blib
+/pm_to_blib
+/META.yml
+/MYMETA.yml
+/META.json
+/MYMETA.json
+/Makefile.PL
+/Build
+/_build
+/*.tar.gz
+/MANIFEST.bak
+/cover_db
+/tmp/*
+/Text-ECSV-*
